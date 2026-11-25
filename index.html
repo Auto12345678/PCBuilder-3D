@@ -1,0 +1,382 @@
+<meta charset="utf-8">
+<title>PC Builder 3D Showroom</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+  /* Layout: แอปเต็มจอ — รายการสินค้าด้านซ้าย | เวที 3D ด้านขวา (มือถือ: เวทีด้านบน รายการด้านล่าง) */
+  :root {
+    --bg: #0a0c11;
+    --panel: #10141c;
+    --panel-2: #161b26;
+    --line: #222a38;
+    --fg: #e7eaf1;
+    --muted: #8b94a8;
+    --cyan: #3cc8ff;
+    --magenta: #ff3f9e;
+    --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+    overflow: hidden;
+  }
+  .app {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding-block: 12px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .brand h1 {
+    margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 18px;
+    letter-spacing: 0.04em; text-transform: uppercase; text-wrap: balance;
+  }
+  .brand h1 span { color: var(--cyan); }
+  .brand small { color: var(--muted); font-size: 12px; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font: 500 13px var(--font-body); color: var(--fg);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+  .btn:focus-visible, .item:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  aside {
+    border-right: 1px solid var(--line); background: var(--panel);
+    overflow-y: auto; padding-block: 8px 24px;
+  }
+  .group { padding-inline: 12px; }
+  .group h2 {
+    margin: 14px 4px 6px; font: 600 11px var(--font-display);
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+  }
+  .item {
+    width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: baseline;
+    text-align: left; color: var(--fg); background: transparent; border: 1px solid transparent;
+    border-radius: 6px; padding: 8px 10px; cursor: pointer; font: inherit;
+  }
+  .item:hover { background: var(--panel-2); }
+  .item[aria-current="true"] {
+    background: var(--panel-2); border-color: var(--line);
+    box-shadow: inset 3px 0 0 var(--cyan);
+  }
+  .item .pid { font: 600 12px var(--font-display); color: var(--cyan); letter-spacing: 0.04em; }
+  .item .nm { font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+
+  main { position: relative; min-width: 0; min-height: 0; overflow: hidden;
+    background:
+      radial-gradient(60% 55% at 12% 100%, rgba(60, 200, 255, 0.16), transparent 70%),
+      radial-gradient(55% 50% at 92% 0%, rgba(255, 63, 158, 0.14), transparent 70%),
+      var(--bg);
+  }
+  canvas#stage { display: block; width: 100%; height: 100%; touch-action: none; }
+  .info {
+    position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 16px;
+    max-width: min(420px, calc(100% - 32px));
+    background: rgba(16, 20, 28, 0.82); backdrop-filter: blur(8px);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  }
+  .info .pid { font: 700 13px var(--font-display); color: var(--cyan); letter-spacing: 0.06em; }
+  .info h3 { margin: 2px 0 8px; font: 600 17px var(--font-display); text-wrap: balance; }
+  .info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font-size: 12.5px; }
+  .info dt { color: var(--muted); }
+  .info dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .status {
+    position: absolute; top: 14px; right: max(16px, env(safe-area-inset-right, 0px));
+    font: 500 12px var(--font-display); letter-spacing: 0.06em; color: var(--muted);
+    background: rgba(16, 20, 28, 0.82); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+  }
+  .status.err { color: var(--magenta); border-color: var(--magenta); }
+  .hint { position: absolute; top: 14px; left: max(16px, env(safe-area-inset-left, 0px)); color: var(--muted); font-size: 12px; }
+
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    .app { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 62vh auto; }
+    main { grid-row: 2; }
+    aside { grid-row: 3; border-right: 0; border-top: 1px solid var(--line);
+      padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+    .info { bottom: 10px; padding: 10px 12px; }
+    .info dl { display: none; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <h1>PC Builder <span>3D</span> Showroom</h1>
+      <small>16 รุ่น · โหลดทีละ 1 โมเดล</small>
+    </div>
+    <div class="tools">
+      <button class="btn" id="btn-rotate" aria-pressed="true">หมุนอัตโนมัติ</button>
+      <button class="btn" id="btn-fans" aria-pressed="true">พัดลมหมุน</button>
+      <button class="btn" id="btn-reset">รีเซ็ตมุมกล้อง</button>
+    </div>
+  </header>
+
+  <aside id="list" aria-label="รายการสินค้า"></aside>
+
+  <main>
+    <canvas id="stage" aria-label="มุมมองโมเดล 3 มิติ"></canvas>
+    <div class="hint">ลากเพื่อหมุน · ล้อเมาส์/สองนิ้วเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</div>
+    <div class="status" id="status">กำลังเตรียม…</div>
+    <section class="info" id="info" aria-live="polite">
+      <div class="pid" id="i-pid">—</div>
+      <h3 id="i-name">—</h3>
+      <dl>
+        <dt>ประเภท</dt><dd id="i-cat">—</dd>
+        <dt>ขนาดโดยประมาณ</dt><dd id="i-dims">—</dd>
+        <dt>Triangles</dt><dd id="i-tris">—</dd>
+        <dt>ไฟล์ GLB</dt><dd id="i-size">—</dd>
+      </dl>
+    </section>
+  </main>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---- ข้อมูลสินค้า (ตรงกับ SharePoint list "Products-project") ----
+const CATS = { CPU: 'CPU', BOARD: 'เมนบอร์ด', GPU: 'การ์ดจอ', RAM: 'แรม', SSD: 'SSD', PSU: 'พาวเวอร์ซัพพลาย', CASE: 'เคส', Cooler: 'ชุดระบายความร้อน CPU' };
+const PRODUCTS = [
+  { id: 'CPU001', name: 'AMD Ryzen 5 5500', tris: 3956, kb: 244.8, dims: [0.04, 0.04, 0.0061] },
+  { id: 'CPU002', name: 'AMD Ryzen 5 5600', tris: 4012, kb: 247.4, dims: [0.04, 0.04, 0.0061] },
+  { id: 'BOARD001', name: 'ASUS PRIME A520M-K', tris: 4334, kb: 301.0, dims: [0.2065, 0.226, 0.0256] },
+  { id: 'BOARD002', name: 'ASUS PRIME B550M-K', tris: 5090, kb: 349.1, dims: [0.2275, 0.244, 0.0256] },
+  { id: 'GPU001', name: 'ASUS Dual RTX 3050 OC 6GB', tris: 4624, kb: 222.8, dims: [0.2118, 0.04, 0.1343] },
+  { id: 'GPU002', name: 'ASUS Dual RTX 5060 OC 8GB', tris: 5428, kb: 337.6, dims: [0.2408, 0.042, 0.1382] },
+  { id: 'RAM001', name: 'Kingston FURY Beast 16GB DDR4-3200 Black (2×8GB)', tris: 5232, kb: 290.1, dims: [0.1334, 0.0192, 0.0341] },
+  { id: 'RAM002', name: 'Kingston FURY Beast 16GB DDR4-3200 RGB (2×8GB)', tris: 5368, kb: 302.0, dims: [0.1334, 0.0192, 0.0422] },
+  { id: 'SSD001', name: 'Kingston NV3 500GB M.2 NVMe', tris: 2692, kb: 151.9, dims: [0.08, 0.022, 0.0022] },
+  { id: 'SSD002', name: 'Kingston NV3 1TB M.2 NVMe', tris: 2212, kb: 127.7, dims: [0.08, 0.022, 0.0022] },
+  { id: 'PSU001', name: 'MSI MAG A650BN 650W Bronze', tris: 7024, kb: 442.2, dims: [0.1503, 0.2792, 0.086] },
+  { id: 'PSU002', name: 'Cooler Master MWE 650 Bronze V2', tris: 6876, kb: 433.0, dims: [0.1503, 0.2792, 0.086] },
+  { id: 'CASE001', name: 'GIGABYTE C102 GLASS Black', tris: 2864, kb: 188.5, dims: [0.2103, 0.4116, 0.467] },
+  { id: 'CASE002', name: 'GIGABYTE C103 GLASS AutoRGB Black', tris: 7342, kb: 431.9, dims: [0.2103, 0.4216, 0.462] },
+  { id: 'Cooler001', name: 'DeepCool AK400 Black', tris: 2628, kb: 172.0, dims: [0.1276, 0.0975, 0.155] },
+  { id: 'Cooler002', name: 'DeepCool AK400 DIGITAL Black', tris: 3728, kb: 236.3, dims: [0.1292, 0.0975, 0.1558] },
+];
+const catOf = id => id.replace(/\d+$/, '');
+const byId = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
+
+// ---- รายการด้านซ้าย ----
+const list = document.getElementById('list');
+const buttons = {};
+for (const [key, label] of Object.entries(CATS)) {
+  const g = document.createElement('div');
+  g.className = 'group';
+  g.innerHTML = `<h2>${label}</h2>`;
+  for (const p of PRODUCTS.filter(p => catOf(p.id) === key)) {
+    const b = document.createElement('button');
+    b.className = 'item'; b.id = 'item-' + p.id;
+    b.innerHTML = `<span class="pid">${p.id}</span><span class="nm"></span>`;
+    b.querySelector('.nm').textContent = p.name;
+    b.addEventListener('click', () => { location.hash = p.id; });
+    g.appendChild(b); buttons[p.id] = b;
+  }
+  list.appendChild(g);
+}
+
+// ---- Three.js ----
+const canvas = document.getElementById('stage');
+const statusEl = document.getElementById('status');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 100);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+
+// ไฟสตูดิโอ: key อุ่น + rim ฟ้า/ชมพู
+const key = new THREE.DirectionalLight(0xfff0e0, 2.2);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.0005;
+scene.add(key, key.target);
+const rimC = new THREE.DirectionalLight(0x3cc8ff, 1.6);
+const rimM = new THREE.DirectionalLight(0xff3f9e, 1.1);
+scene.add(rimC, rimM, new THREE.HemisphereLight(0xbfd4ff, 0x0a0c11, 0.35));
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.45 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const loader = new GLTFLoader();
+let current = null, fans = [], loadToken = 0, frame = null;
+
+function dispose(obj) {
+  obj.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose();
+      m.dispose();
+    }
+  });
+}
+
+function setInfo(p) {
+  document.getElementById('i-pid').textContent = p.id;
+  document.getElementById('i-name').textContent = p.name;
+  document.getElementById('i-cat').textContent = CATS[catOf(p.id)];
+  const mm = p.dims.map(v => Math.round(v * 1000));
+  document.getElementById('i-dims').textContent = `${mm[0]} × ${mm[1]} × ${mm[2]} มม.`;
+  document.getElementById('i-tris').textContent = p.tris.toLocaleString('en-US');
+  document.getElementById('i-size').textContent = `${p.kb.toFixed(1)} KB`;
+  for (const [id, b] of Object.entries(buttons)) b.setAttribute('aria-current', id === p.id ? 'true' : 'false');
+}
+
+function fit(obj) {
+  const box = new THREE.Box3().setFromObject(obj);
+  obj.position.y -= box.min.y;                       // วางบนพื้น
+  box.setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const r = size.length() / 2;
+  const dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.05;
+  camera.near = r / 100; camera.far = r * 100; camera.updateProjectionMatrix();
+  const dir = new THREE.Vector3(-0.55, 0.42, 0.85).normalize();
+  frame = { center, pos: center.clone().addScaledVector(dir, dist), r };
+  camera.position.copy(frame.pos);
+  controls.target.copy(center);
+  controls.minDistance = r * 0.6; controls.maxDistance = r * 8;
+  controls.update();
+  key.position.copy(center).add(new THREE.Vector3(-1.2, 2.0, 1.4).multiplyScalar(r * 2));
+  key.target.position.copy(center);
+  const sc = key.shadow.camera;
+  sc.left = sc.bottom = -r * 1.5; sc.right = sc.top = r * 1.5; sc.near = r * 0.1; sc.far = r * 8;
+  sc.updateProjectionMatrix();
+  rimC.position.copy(center).add(new THREE.Vector3(-2, 1.2, -2).multiplyScalar(r));
+  rimM.position.copy(center).add(new THREE.Vector3(2, 1.0, -1.6).multiplyScalar(r));
+  ground.scale.setScalar(r * 8);
+  ground.position.set(center.x, 0, center.z);
+}
+
+function findFans(obj) {
+  const out = [];
+  obj.traverse(o => {
+    if (o.isMesh && /_Fan(_[LR])?$/.test(o.name)) {
+      const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+      const axis = s.x <= s.y && s.x <= s.z ? 'x' : (s.y <= s.z ? 'y' : 'z');   // แกนหมุน = ด้านที่บางที่สุด
+      out.push({ o, axis });
+    }
+  });
+  return out;
+}
+
+async function show(id) {
+  const p = byId[id] || byId.GPU001;
+  const token = ++loadToken;
+  setInfo(p);
+  statusEl.className = 'status';
+  statusEl.textContent = `กำลังโหลด ${p.id}…`;
+  try {
+    // ใช้ไฟล์ glTF แบบ JSON (ข้อมูลเดียวกับ .glb) — ถ้าไม่มีจะลองโหลด .glb แทน
+    const onProg = e => {
+      if (token === loadToken && e.total) statusEl.textContent = `กำลังโหลด ${p.id} ${Math.round(e.loaded / e.total * 100)}%`;
+    };
+    let gltf;
+    try { gltf = await loader.loadAsync(`models/${p.id}.gltf.json`, onProg); }
+    catch (e1) { gltf = await loader.loadAsync(`models/${p.id}.glb`, onProg); }
+    if (token !== loadToken) { dispose(gltf.scene); return; }
+    if (current) { scene.remove(current); dispose(current); }   // โหลดทีละ 1 โมเดล
+    current = gltf.scene;
+    current.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = true; o.receiveShadow = true;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) if ('envMapIntensity' in m) m.envMapIntensity = 0.35;
+      }
+    });
+    scene.add(current);
+    fit(current);
+    fans = findFans(current);
+    statusEl.textContent = `${p.id} · พร้อมแสดงผล`;
+  } catch (err) {
+    if (token !== loadToken) return;
+    statusEl.className = 'status err';
+    statusEl.textContent = `โหลด ${p.id}.glb ไม่สำเร็จ ลองเลือกใหม่อีกครั้ง`;
+    console.error(err);
+  }
+}
+
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(h, 1);
+    camera.updateProjectionMatrix();
+  }
+}
+
+let spinFans = true;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  resize();
+  const dt = clock.getDelta();
+  if (spinFans) for (const f of fans) f.o.rotation[f.axis] += dt * 6;
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+// ---- ปุ่ม ----
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rotBtn = document.getElementById('btn-rotate');
+const fanBtn = document.getElementById('btn-fans');
+if (reduce) { controls.autoRotate = false; rotBtn.setAttribute('aria-pressed', 'false'); }
+rotBtn.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  rotBtn.setAttribute('aria-pressed', String(controls.autoRotate));
+});
+fanBtn.addEventListener('click', () => {
+  spinFans = !spinFans;
+  fanBtn.setAttribute('aria-pressed', String(spinFans));
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!frame) return;
+  camera.position.copy(frame.pos); controls.target.copy(frame.center); controls.update();
+});
+
+// ---- ลิงก์ตรงไปยังรุ่น เช่น ...#RAM002 ----
+const fromHash = () => show(decodeURIComponent(location.hash.slice(1)) || 'GPU001');
+addEventListener('hashchange', fromHash);
+fromHash();
+</script>
